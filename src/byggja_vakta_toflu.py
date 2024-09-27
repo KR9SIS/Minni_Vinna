@@ -1,9 +1,14 @@
 """
 This is a script used to read in an Excel spreadsheet from
-Vinnustund and format the names based off time and date
+Vinnustund and format the names based off time and date.
+The code is owned and written by Kristófer Helgi Sigurðsson
+Email: kristoferhelgi@protonmail.com
+Github: https://github.com/KR9SIS/RVK_HMH
 """
 
+from argparse import ArgumentParser
 from pathlib import Path
+from textwrap import dedent
 
 from pandas import DataFrame, ExcelWriter, read_excel
 
@@ -20,24 +25,56 @@ class CreateShiftsSheet:
     """
 
     def __init__(self) -> None:
-        self.stdout = True
+        parser = ArgumentParser(description="Parser to check if debug mode is set")
+        parser.add_argument(
+            "-t",
+            "--template",
+            required=False,
+            default="template.xlsx",
+            type=str,
+            help="Use specific template document",
+        )
+        parser.add_argument(
+            "-ve",
+            "--vinna_excel",
+            required=False,
+            default="",
+            type=str,
+            help="Use specific vinna Excel document",
+        )
+        parser.add_argument(
+            "-s",
+            "--silent",
+            required=False,
+            default=True,
+            action="store_false",
+            help="Run program without printing messages to stdout",
+        )
+        args = parser.parse_args()
+        self.stdout = args.silent
+
         try:
             _ = print("Program start") if self.stdout is True else None
-            self.df_vs_file, check = self.check_workspace()
-            if check:
-                _ = print("Passed workspace checks") if self.stdout is True else None
-                self.df_sheets: dict[str, DataFrame] = {}
-                self.weekday_index: dict[int, dict[str, int]] = {}
-                self.nicknames: dict[str, str] = self.create_name_nickname_dict()
-                self.map_shifts()
-                self.seperate_names()
-                self.create_shift_excel()
+            if args.vinna_excel:
+                self.get_specific_vs_file(
+                    str(Path(args.vinna_excel).resolve(strict=True))
+                )
+            else:
+                self.df_v_file = self.check_workspace()
+
+            _ = print("Passed workspace checks") if self.stdout is True else None
+            self.df_sheets: dict[str, DataFrame] = {}
+            self.weekday_index: dict[int, dict[str, int]] = {}
+            self.nicknames: dict[str, str] = self.create_name_nickname_dict()
+            self.map_shifts(str(Path(args.template).resolve(strict=True)))
+            self.seperate_names()
+            self.create_shift_excel()
 
         except ProgExitError:
             # If specified errors occur, the program will write them to the user, and then exit
             pass
 
-    def check_workspace(self) -> tuple[DataFrame, bool]:
+    def check_workspace(self) -> DataFrame:
         """
         Check workspace to make sure there is only the template.xlsx file and 1 other excel file
         within the current files workspace
@@ -45,8 +82,7 @@ class CreateShiftsSheet:
         _ = print("Checking workspace") if self.stdout is True else None
 
         cwd = Path.cwd()
-        # TODO: Remove. +3 accounts for .venv .git and .gitignore
-        if len([*cwd.iterdir()]) == 4 + 3:
+        if len([*cwd.iterdir()]) == 4:
             vs_file = DataFrame()
             template = readme = get_times = extra_excel = False
             for file in cwd.iterdir():
@@ -64,17 +100,27 @@ class CreateShiftsSheet:
                                 extra_excel = True
 
             if template and readme and extra_excel and get_times:
-                return (vs_file, True)
+                return vs_file
 
+        contents = "\n".join([path.name for path in cwd.iterdir()])
         self.write_error(
-            f"""
-            There must only be 4 files in this folder:
-            \ntemplate.xlsx, byggja_vakta_toflu.exe, README.html, & the Vinna Excel file\n
-            Currently there are:\n
-            {"\n".join(map(str, cwd.iterdir()))}
-            """
+            dedent(
+                """
+                There must only be 4 files in this folder:
+                template.xlsx, byggja_vakta_toflu.exe, README.html,
+                & the Vinna Excel file where "Starfsmaður" is written in A1.
+                Currently there are:
+                """
+            )
+            + f"{contents}"
         )
-        return (DataFrame(), False)
+        raise ProgExitError
+
+    def get_specific_vs_file(self, file: str) -> DataFrame:
+        """
+        Get's a specific excel file to read from
+        """
+        self.df_v_file = read_excel(file, header=None)
 
     def create_name_nickname_dict(self) -> dict[str, str]:
         """
@@ -85,7 +131,7 @@ class CreateShiftsSheet:
         _ = print("Creating name nickname dictionary") if self.stdout is True else None
         nicknames = set()
         ret: dict[str, str] = {}
-        for emp_name in self.df_vs_file[1][2:]:
+        for emp_name in self.df_v_file[1][2:]:
             done = False
             names = emp_name.split()
             index = -1
@@ -97,6 +143,8 @@ class CreateShiftsSheet:
                         nicknames.add(nickname)
                         ret[emp_name] = nickname
                         done = True
+                    elif index > len(self.df_v_file[1][2:]):
+                        raise IndexError
                 except IndexError as exc:
                     self.write_error(f"The '{emp_name}' name is already in use")
                     raise ProgExitError from exc
@@ -122,7 +170,7 @@ class CreateShiftsSheet:
 
             self.write_error(
                 f"""
-                Weekday did not match between template sheet and vinna excel sheet\n
+                Weekday did not match between template sheet and vinna excel sheet
                 {weekday} is not in template.xlsx
                 """
             )
@@ -140,10 +188,11 @@ class CreateShiftsSheet:
                 self.write_error(
                     f"""
                     Program tried to write more than 4 names outside of the normal shift times
-                    on {date_day[1]} the {date_day[0]} at time {week_sheet.at[0, weekday_index]}.\n
-                    Please write three extra "-" at the bottom of template.xlsx to allow
-                    for more unorthodox shift times and see if those three were enough.
-                    PS. the more "-" you add the slower the program runs, so only add as many as needed.
+                    on {date_day[1]} the {date_day[0]} at time {week_sheet.at[0, weekday_index]}.
+                    Please write three extra '-' at the bottom of template.xlsx
+                    to allow for more unorthodox shift times and see if those three were enough.
+                    PS. the more '-' you add the slower the program runs,
+                    so only add as many as needed.
                     """
                 )
                 raise ProgExitError from exc
@@ -170,14 +219,14 @@ class CreateShiftsSheet:
 
         self.write_error(
             f"""
-            Time {shift_time} on {date_day[1]} the {date_day[0]}.\n
-            came from the Vinna Excel sheet but could not be found in template.xlsx\n
-            Please add an "Aðrir Tímar" if you want to have unorthodox shift times. 
+            Time {shift_time} on {date_day[1]} the {date_day[0]}.
+            came from the Vinna Excel sheet but could not be found in template.xlsx
+            Please add an 'Aðrir Tímar' if you want to have unorthodox shift times.
             """
         )
         raise ProgExitError
 
-    def map_shifts(self):
+    def map_shifts(self, template):
         """
         Iterate through every shift in the Vinnustund workbook and map the names within it to
         the new employee workbook.
@@ -192,7 +241,7 @@ class CreateShiftsSheet:
 
             self.write_error(
                 f"""
-                Day could not be found to write the date '{date_day[0]}'.\n
+                Weekday could not be found to write the date '{date_day[0]}'.
                 Make sure '{date_day[1]}' is in the second row of template.xlsx
                 """
             )
@@ -210,28 +259,28 @@ class CreateShiftsSheet:
                     ] = column_index
 
         week = 1
-        self.df_sheets[f"V{week}"] = read_excel("template.xlsx", header=None)
+        self.df_sheets[f"V{week}"] = read_excel(template, header=None)
         week_sheet = self.df_sheets[f"V{week}"]
         create_time_weekday_index(week_sheet)
 
         _ = print(f"V{week}") if self.stdout is True else None
-        for column_index in range(2, len(self.df_vs_file.columns)):
-            date_day = self.df_vs_file.at[0, column_index].split()
+        for column_index in range(2, len(self.df_v_file.columns)):
+            date_day = self.df_v_file.at[0, column_index].split()
             if date_day[1] == "mán" and date_day[0].split(".")[0] != "11":
                 week += 1
                 self.df_sheets[f"V{week}"] = week_sheet = read_excel(
-                    "template.xlsx", header=None
+                    template, header=None
                 )
                 _ = print(f"V{week}") if self.stdout is True else None
 
             write_date(date_day, week_sheet)
 
             for row_ind, column_cell in enumerate(
-                self.df_vs_file[column_index][2:], start=2
+                self.df_v_file[column_index][2:], start=2
             ):
                 if isinstance(column_cell, str):
                     self.map_name(
-                        self.nicknames[self.df_vs_file.at[row_ind, 1]],
+                        self.nicknames[self.df_v_file.at[row_ind, 1]],
                         column_cell,  # shift_time
                         date_day,
                         week_sheet,
@@ -295,7 +344,7 @@ class CreateShiftsSheet:
         """
         _ = print("Writing error") if self.stdout is True else None
 
-        print(msg)
+        print(dedent(msg), "\n")
         _ = input("Press enter on the line to exit program _____")
 
 
