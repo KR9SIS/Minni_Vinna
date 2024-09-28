@@ -8,15 +8,21 @@ Github: https://github.com/KR9SIS/RVK_HMH
 
 from argparse import ArgumentParser
 from pathlib import Path
+from sys import path
 from textwrap import dedent
 
 from pandas import DataFrame, ExcelWriter, read_excel
 
-
-class ProgExitError(Exception):
-    """
-    Custom Exception which is raised whenever the program needs to exit
-    """
+path.append(str(Path(__file__).parent.parent.resolve()))
+from exceptions import (
+    DirContentsError,
+    ProgExitError,
+    ShiftsOutOfBoundsError,
+    TakenEmpNameError,
+    UnorthodoxShiftDeniedError,
+    WeekdayNotFoundError,
+    WriteDateError,
+)
 
 
 class CreateShiftsSheet:
@@ -50,8 +56,18 @@ class CreateShiftsSheet:
             action="store_false",
             help="Run program without printing messages to stdout",
         )
+        parser.add_argument(
+            "-test",
+            "--test_run",
+            required=False,
+            default=False,
+            action="store_true",
+            help="Run program in testing mode",
+        )
+
         args = parser.parse_args()
         self.stdout = args.silent
+        self.test_run = args.test_run
 
         try:
             _ = print("Program start") if self.stdout is True else None
@@ -103,6 +119,10 @@ class CreateShiftsSheet:
                 return vs_file
 
         contents = "\n".join([path.name for path in cwd.iterdir()])
+
+        if self.test_run:
+            raise DirContentsError
+
         self.write_error(
             dedent(
                 """
@@ -146,6 +166,8 @@ class CreateShiftsSheet:
                     elif index > len(self.df_v_file[1][2:]):
                         raise IndexError
                 except IndexError as exc:
+                    if self.test_run:
+                        raise TakenEmpNameError from exc
                     self.write_error(f"The '{emp_name}' name is already in use")
                     raise ProgExitError from exc
 
@@ -167,7 +189,8 @@ class CreateShiftsSheet:
             for batch, days in self.weekday_index.items():
                 if weekday in days:
                     return (week_sheet[batch], batch)
-
+            if self.test_run:
+                raise WeekdayNotFoundError
             self.write_error(
                 f"""
                 Weekday did not match between template sheet and vinna excel sheet
@@ -185,6 +208,8 @@ class CreateShiftsSheet:
                 return week_sheet
 
             except KeyError as exc:
+                if self.test_run:
+                    raise ShiftsOutOfBoundsError from exc
                 self.write_error(
                     f"""
                     Program tried to write more than 4 names outside of the normal shift times
@@ -217,6 +242,8 @@ class CreateShiftsSheet:
         if row_ind != -999 and time == "Aðrir Tímar":
             return write_unknown_time(row_ind)
 
+        if self.test_run:
+            raise UnorthodoxShiftDeniedError
         self.write_error(
             f"""
             Time {shift_time} on {date_day[1]} the {date_day[0]}.
@@ -239,6 +266,8 @@ class CreateShiftsSheet:
                     week_sheet.at[0, column_index] = date_day[0]
                     return
 
+            if self.test_run:
+                raise WriteDateError
             self.write_error(
                 f"""
                 Weekday could not be found to write the date '{date_day[0]}'.
