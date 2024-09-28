@@ -30,7 +30,36 @@ class CreateShiftsSheet:
     Class for writing the script
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self, template="template.xlsx", vinna_excel="", stdout=True, test_run=False
+    ) -> None:
+        self.stdout = stdout
+        self.test_run = test_run
+        try:
+            _ = print("Program start") if self.stdout is True else None
+            if vinna_excel:
+                self.get_specific_vs_file(str(Path(vinna_excel).resolve(strict=True)))
+            else:
+                self.df_v_file = self.check_workspace()
+
+            _ = print("Passed workspace checks") if self.stdout is True else None
+            self.df_sheets: dict[str, DataFrame] = {}
+            self.weekday_index: dict[int, dict[str, int]] = {}
+            self.nicknames: dict[str, str] = self.create_name_nickname_dict()
+            self.map_shifts(str(Path(template).resolve(strict=True)))
+            self.seperate_names()
+            self.create_shift_excel()
+
+        except ProgExitError:
+            # If specified errors occur, the program will write them to the user, and then exit
+            pass
+
+    @staticmethod
+    def argparsing():
+        """
+        Argument parsing functionality for command line arguments
+        """
+
         parser = ArgumentParser(description="Parser to check if debug mode is set")
         parser.add_argument(
             "-t",
@@ -50,7 +79,7 @@ class CreateShiftsSheet:
         )
         parser.add_argument(
             "-s",
-            "--silent",
+            "--stdout",
             required=False,
             default=True,
             action="store_false",
@@ -65,30 +94,7 @@ class CreateShiftsSheet:
             help="Run program in testing mode",
         )
 
-        args = parser.parse_args()
-        self.stdout = args.silent
-        self.test_run = args.test_run
-
-        try:
-            _ = print("Program start") if self.stdout is True else None
-            if args.vinna_excel:
-                self.get_specific_vs_file(
-                    str(Path(args.vinna_excel).resolve(strict=True))
-                )
-            else:
-                self.df_v_file = self.check_workspace()
-
-            _ = print("Passed workspace checks") if self.stdout is True else None
-            self.df_sheets: dict[str, DataFrame] = {}
-            self.weekday_index: dict[int, dict[str, int]] = {}
-            self.nicknames: dict[str, str] = self.create_name_nickname_dict()
-            self.map_shifts(str(Path(args.template).resolve(strict=True)))
-            self.seperate_names()
-            self.create_shift_excel()
-
-        except ProgExitError:
-            # If specified errors occur, the program will write them to the user, and then exit
-            pass
+        return parser.parse_args()
 
     def check_workspace(self) -> DataFrame:
         """
@@ -377,4 +383,11 @@ class CreateShiftsSheet:
         _ = input("Press enter on the line to exit program _____")
 
 
-CreateShiftsSheet()
+if __name__ == "__main__":
+    args = CreateShiftsSheet.argparsing()
+    CreateShiftsSheet(
+        template=args.template,
+        vinna_excel=args.vinna_excel,
+        stdout=args.stdout,
+        test_run=args.test_run,
+    )
