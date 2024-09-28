@@ -54,48 +54,6 @@ class CreateShiftsSheet:
             # If specified errors occur, the program will write them to the user, and then exit
             pass
 
-    @staticmethod
-    def argparsing():
-        """
-        Argument parsing functionality for command line arguments
-        """
-
-        parser = ArgumentParser(description="Parser to check if debug mode is set")
-        parser.add_argument(
-            "-t",
-            "--template",
-            required=False,
-            default="template.xlsx",
-            type=str,
-            help="Use specific template document",
-        )
-        parser.add_argument(
-            "-ve",
-            "--vinna_excel",
-            required=False,
-            default="",
-            type=str,
-            help="Use specific vinna Excel document",
-        )
-        parser.add_argument(
-            "-s",
-            "--stdout",
-            required=False,
-            default=True,
-            action="store_false",
-            help="Run program without printing messages to stdout",
-        )
-        parser.add_argument(
-            "-test",
-            "--test_run",
-            required=False,
-            default=False,
-            action="store_true",
-            help="Run program in testing mode",
-        )
-
-        return parser.parse_args()
-
     def check_workspace(self) -> DataFrame:
         """
         Check workspace to make sure there is only the template.xlsx file and 1 other excel file
@@ -381,6 +339,48 @@ class CreateShiftsSheet:
 
         print(dedent(msg), "\n")
         _ = input("Press enter on the line to exit program _____")
+
+    @staticmethod
+    def argparsing():
+        """
+        Argument parsing functionality for command line arguments
+        """
+
+        parser = ArgumentParser(description="Parser to check if debug mode is set")
+        parser.add_argument(
+            "-t",
+            "--template",
+            required=False,
+            default="template.xlsx",
+            type=str,
+            help="Use specific template document",
+        )
+        parser.add_argument(
+            "-ve",
+            "--vinna_excel",
+            required=False,
+            default="",
+            type=str,
+            help="Use specific vinna Excel document",
+        )
+        parser.add_argument(
+            "-s",
+            "--stdout",
+            required=False,
+            default=True,
+            action="store_false",
+            help="Run program without printing messages to stdout",
+        )
+        parser.add_argument(
+            "-test",
+            "--test_run",
+            required=False,
+            default=False,
+            action="store_true",
+            help="Run program in testing mode",
+        )
+
+        return parser.parse_args()
 
 
 if __name__ == "__main__":
