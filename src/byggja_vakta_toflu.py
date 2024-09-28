@@ -8,21 +8,9 @@ Github: https://github.com/KR9SIS/RVK_HMH
 
 from argparse import ArgumentParser
 from pathlib import Path
-from sys import path
 from textwrap import dedent
 
 from pandas import DataFrame, ExcelWriter, read_excel
-
-path.append(str(Path(__file__).parent.parent.resolve()))
-from exceptions import (
-    DirContentsError,
-    ProgExitError,
-    ShiftsOutOfBoundsError,
-    TakenEmpNameError,
-    UnorthodoxShiftDeniedError,
-    WeekdayNotFoundError,
-    WriteDateError,
-)
 
 
 class CreateShiftsSheet:
@@ -381,6 +369,124 @@ class CreateShiftsSheet:
         )
 
         return parser.parse_args()
+
+
+class CustomException(Exception):
+    """
+    Custom exception for byggja_vakta_toflu.py
+    """
+
+    def __init__(self, message: str, error_code: int) -> None:
+        self.message = message
+        self.error_code = error_code
+
+    def __str__(self) -> str:
+        return f"Message:\n{self.message}\nErrorCode: {self.error_code}"
+
+
+class ProgExitError(CustomException):
+    """
+    Custom Exception which is raised whenever the program needs to exit.
+    """
+
+    def __init__(
+        self,
+        message: str = "Custom Exception which is raised whenever the program needs to exit.",
+        error_code: int = -1,
+    ) -> None:
+        super().__init__(message, error_code)
+
+
+class DirContentsError(CustomException):
+    """
+    Custom Exception which is raised whenever the cwd contents are incorrect during unittest.
+    stdout:
+        There must only be 4 files in this folder:
+        template.xlsx, byggja_vakta_toflu.exe, README.html,
+        & the Vinna Excel file where "Starfsmaður" is written in A1.
+        Currently there are:
+        {contents of the CWD}
+    """
+
+    def __init__(self, message: str = "DirContentsError", error_code: int = -2) -> None:
+        super().__init__(message, error_code)
+
+
+class TakenEmpNameError(CustomException):
+    """
+    Custom Exception which is raised whenever an employee name is already in use during unittest.
+    stdout:
+        The '{emp_name}' name is already in use
+    """
+
+    def __init__(
+        self, message: str = "TakenEmpNameError", error_code: int = -3
+    ) -> None:
+        super().__init__(message, error_code)
+
+
+class WeekdayNotFoundError(CustomException):
+    """
+    Custom Exception which is raised whenever a weekday from the Vinna excel sheet
+    is not found in template.xlsx during unittest.
+    stdout:
+        Weekday did not match between template sheet and vinna excel sheet
+        {weekday} is not in template.xlsx
+
+    """
+
+    def __init__(
+        self, message: str = "WeekdayNotFoundError", error_code: int = -4
+    ) -> None:
+        super().__init__(message, error_code)
+
+
+class ShiftsOutOfBoundsError(CustomException):
+    """
+    Custom Exception which is raised whenever there are
+    too many unorthodox shift times during unittest.
+    stdout:
+        Program tried to write more than 4 names outside of the normal shift times
+        on {date_day[1]} the {date_day[0]} at time {week_sheet.at[0, weekday_index]}.
+        Please write three extra '-' at the bottom of template.xlsx
+        to allow for more unorthodox shift times and see if those three were enough.
+        PS. the more '-' you add the slower the program runs,
+        so only add as many as needed.
+    """
+
+    def __init__(
+        self, message: str = "ShiftsOutOfBoundsError", error_code: int = -5
+    ) -> None:
+        super().__init__(message, error_code)
+
+
+class UnorthodoxShiftDeniedError(CustomException):
+    """
+    Custom Exception which is raised whenever "Aðrir Tímar" is not set
+    but an unorthodox shift time is found in the Vinna Excel sheet during unittest.
+    stdout:
+        Time {shift_time} on {date_day[1]} the {date_day[0]}.
+        came from the Vinna Excel sheet but could not be found in template.xlsx
+        Please add an 'Aðrir Tímar' if you want to have unorthodox shift times.
+    """
+
+    def __init__(
+        self, message: str = "UnorthodoxShiftDeniedError", error_code: int = -6
+    ) -> None:
+        super().__init__(message, error_code)
+
+
+class WriteDateError(CustomException):
+    """
+    Custom Exception which is raised whenever the program encounters a date in the Vinna Excel sheet
+    which is not within the template sheet during unittest.
+    stdout:
+        Weekday could not be found to write the date '{date_day[0]}'.
+        Make sure '{date_day[1]}' is in the second row of template.xlsx
+    """
+
+    def __init__(self, message: str = "WriteDateError", error_code: int = -7) -> None:
+        super().__init__(message, error_code)
 
 
 if __name__ == "__main__":
