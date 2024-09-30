@@ -279,7 +279,9 @@ class CreateShiftsSheet:
             num_names = len(names)
             count = 0
             for count in range(1, num_names + 1):
-                if not isinstance(week_sheet.at[row_ind + count, column_index], float):
+                if not isinstance(
+                    week_sheet.at[row_ind + count, column_index], float
+                ) or not isinstance(week_sheet.at[row_ind + count, 0], float):
                     break
             if count >= num_names:
                 for count, name in enumerate(names):
