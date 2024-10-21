@@ -9,13 +9,14 @@ Github: https://github.com/KR9SIS/RVK_HMH
 from argparse import ArgumentParser
 from pathlib import Path
 from textwrap import dedent
+from warnings import catch_warnings, simplefilter
 
 from pandas import DataFrame, ExcelWriter, read_excel
 
 
 class CreateShiftsSheet:
     """
-    Class for writing the script
+    Class implementation of the application script
     """
 
     def __init__(
@@ -63,7 +64,12 @@ class CreateShiftsSheet:
                         get_times = True
                     case _:
                         if file.suffix == ".xlsx":
-                            vs_file = read_excel(file.name, header=None)
+                            with catch_warnings():
+                                # Ignores following warning
+                                # openpyxl\styles\stylesheet.py:237: UserWarning:
+                                # Workbook contains no default style, apply openpyxl's default
+                                simplefilter("ignore", category=UserWarning)
+                                vs_file = read_excel(file.name, header=None)
                             if vs_file.at[0, 0] == "Starfsmaður":
                                 extra_excel = True
 
@@ -125,6 +131,24 @@ class CreateShiftsSheet:
 
         return ret
 
+    def get_time_col(self, week_sheet: DataFrame, weekday: str):
+        """
+        Function which takes in a DataFrame and weekday
+        and returns the column and index of the weekday in the sheet
+        """
+        for batch_index, days in self.weekday_index.items():
+            if weekday in days:
+                return (week_sheet[batch_index], batch_index)
+        if self.test_run:
+            raise WeekdayNotFoundError
+        self.write_error(
+            f"""
+            Weekday did not match between template sheet and vinna excel sheet
+            {weekday} is not in template.xlsx
+            """
+        )
+        raise ProgExitError
+
     def map_name(
         self,
         emp_nickname: str,
@@ -136,20 +160,6 @@ class CreateShiftsSheet:
         Take in strings employee name, time HH:MM-HH:MM, weekday & sheet denoting the time an
         employee is supposed to be working and write their shift time to the correct workbook sheet.
         """
-
-        def get_time_col(weekday: str):
-            for batch, days in self.weekday_index.items():
-                if weekday in days:
-                    return (week_sheet[batch], batch)
-            if self.test_run:
-                raise WeekdayNotFoundError
-            self.write_error(
-                f"""
-                Weekday did not match between template sheet and vinna excel sheet
-                {weekday} is not in template.xlsx
-                """
-            )
-            raise ProgExitError
 
         def write_unknown_time(row_ind):
             try:
@@ -174,7 +184,7 @@ class CreateShiftsSheet:
                 )
                 raise ProgExitError from exc
 
-        (time_column, batch) = get_time_col(date_day[1])
+        (time_column, batch) = self.get_time_col(week_sheet, date_day[1])
         weekday_index = self.weekday_index[batch][date_day[1]]
 
         row_ind = -999
@@ -281,7 +291,7 @@ class CreateShiftsSheet:
             for count in range(1, num_names + 1):
                 if not isinstance(
                     week_sheet.at[row_ind + count, column_index], float
-                ) or not isinstance(week_sheet.at[row_ind + count, 0], float):
+                ) or not isinstance(week_sheet.at[row_ind + count, batch_index], float):
                     break
             if count >= num_names:
                 for count, name in enumerate(names):
@@ -291,6 +301,15 @@ class CreateShiftsSheet:
         for sheet_name, week_sheet in self.df_sheets.items():
             _ = print(f"{sheet_name}") if self.stdout is True else None
             for column_index in range(1, len(week_sheet.columns)):
+                if week_sheet.at[1, column_index] == "Tímar" or isinstance(
+                    week_sheet.at[1, column_index], float
+                ):
+                    continue
+                    # If the current column is a time column, then it contains no names to seperate
+                (_, batch_index) = self.get_time_col(
+                    week_sheet, week_sheet.at[1, column_index]
+                )
+
                 for row_ind, column_cell in enumerate(
                     week_sheet[column_index][2:], start=2
                 ):
