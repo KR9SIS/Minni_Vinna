@@ -84,7 +84,7 @@ class CreateShiftsSheet:
         if self.test_run:
             raise DirContentsError
 
-        self.write_error(
+        self.__write_error(
             dedent(
                 """
                 There must only be 4 files in this folder:
@@ -129,7 +129,7 @@ class CreateShiftsSheet:
                 except IndexError as exc:
                     if self.test_run:
                         raise TakenEmpNameError from exc
-                    self.write_error(f"The '{emp_name}' name is already in use")
+                    self.__write_error(f"The '{emp_name}' name is already in use")
                     raise ProgExitError from exc
 
         return ret
@@ -144,7 +144,7 @@ class CreateShiftsSheet:
                 return (week_sheet[batch_index], batch_index)
         if self.test_run:
             raise WeekdayNotFoundError
-        self.write_error(
+        self.__write_error(
             f"""
             Weekday did not match between template sheet and vinna excel sheet
             {weekday} is not in template.xlsx
@@ -175,7 +175,7 @@ class CreateShiftsSheet:
             except KeyError as exc:
                 if self.test_run:
                     raise ShiftsOutOfBoundsError from exc
-                self.write_error(
+                self.__write_error(
                     f"""
                     Program tried to write more than 4 names outside of the normal shift times
                     on {date_day[1]} the {date_day[0]} at time {week_sheet.at[0, weekday_index]}.
@@ -209,7 +209,7 @@ class CreateShiftsSheet:
 
         if self.test_run:
             raise UnorthodoxShiftDeniedError
-        self.write_error(
+        self.__write_error(
             f"""
             Time {shift_time} on {date_day[1]} the {date_day[0]}.
             came from the Vinna Excel sheet but could not be found in template.xlsx
@@ -233,7 +233,7 @@ class CreateShiftsSheet:
 
             if self.test_run:
                 raise WriteDateError
-            self.write_error(
+            self.__write_error(
                 f"""
                 Weekday could not be found to write the date '{date_day[0]}'.
                 Make sure '{date_day[1]}' is in the second row of template.xlsx
@@ -343,7 +343,7 @@ class CreateShiftsSheet:
                 for time_column in self.weekday_index:
                     worksheet.set_column(time_column, time_column, 16, bold_format)
 
-    def write_error(self, msg: str):
+    def __write_error(self, msg: str):
         """
         Writes error to file for user to see
         """
