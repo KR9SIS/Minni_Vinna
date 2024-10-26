@@ -51,7 +51,8 @@ class CreateShiftsSheet:
         _ = print("Checking workspace") if self.stdout is True else None
 
         cwd = Path.cwd()
-        if len([*cwd.iterdir()]) == 4:
+        cwd_len = len([*cwd.iterdir()])
+        if cwd_len in {4, 5}:
             vs_file = DataFrame()
             template = readme = get_times = extra_excel = False
             for file in cwd.iterdir():
@@ -62,6 +63,8 @@ class CreateShiftsSheet:
                         readme = True
                     case "byggja_vakta_toflu.exe":
                         get_times = True
+                    case "VaktaTafla.xlsx":
+                        continue
                     case _:
                         if file.suffix == ".xlsx":
                             with catch_warnings():
