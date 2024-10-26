@@ -61,7 +61,7 @@ class CreateShiftsSheet:
                         template = True
                     case "README.html":
                         readme = True
-                    case "byggja_vakta_toflu.exe":
+                    case "byggja_vakta_toflu.exe" | "byggja_vakta_toflu.py":
                         get_times = True
                     case "VaktaTafla.xlsx":
                         continue
