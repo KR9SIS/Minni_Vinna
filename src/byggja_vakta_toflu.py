@@ -27,7 +27,9 @@ class CreateShiftsSheet:
         try:
             _ = print("Program start") if self.stdout is True else None
             if vinna_excel:
-                self.get_specific_vs_file(str(Path(vinna_excel).resolve(strict=True)))
+                self.df_v_file = self.get_specific_vs_file(
+                    str(Path(vinna_excel).resolve(strict=True))
+                )
             else:
                 self.df_v_file = self.check_workspace()
 
@@ -101,7 +103,7 @@ class CreateShiftsSheet:
         """
         Get's a specific excel file to read from
         """
-        self.df_v_file = read_excel(file, header=None)
+        return read_excel(file, header=None)
 
     def create_name_nickname_dict(self) -> dict[str, str]:
         """
