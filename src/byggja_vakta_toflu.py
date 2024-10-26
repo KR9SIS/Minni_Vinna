@@ -40,6 +40,7 @@ class CreateShiftsSheet:
             self.map_shifts(str(Path(template).resolve(strict=True)))
             self.seperate_names()
             self.create_shift_excel()
+            self.check_first_last_date()
 
         except ProgExitError:
             # If specified errors occur, the program will write them to the user, and then exit
@@ -344,6 +345,39 @@ class CreateShiftsSheet:
                 worksheet.set_row(1, None, bold_format)
                 for time_column in self.weekday_index:
                     worksheet.set_column(time_column, time_column, 16, bold_format)
+
+    def check_first_last_date(self):
+        """
+        Checks that the last date of the month
+        is the date before the first date of the month
+        """
+        date_day_row = self.df_v_file.iloc[0].to_numpy()
+        start_date = int(date_day_row[2][0:2])
+        end_date = int(date_day_row[-1][0:2])
+        if start_date - 1 != end_date:
+            diff = start_date - end_date - 1
+            if diff == 1:
+                self.__write_error(
+                    dedent(
+                        f"""
+                            VaktaTafla has been created succesfully, but the first date in the Vinna Excel file
+                            was the {start_date}th, while the last date was the {end_date}th.
+                            Which means 1 date is missing.
+                            """
+                    )
+                )
+            else:
+                self.__write_error(
+                    dedent(
+                        f"""
+                            VaktaTafla has been created succesfully, but the first date in the Vinna Excel file
+                            was the {start_date}th, while the last date was the {end_date}th.
+                            Which means {diff} dates are missing.
+                            """
+                    )
+                )
+
+            raise ProgExitError
 
     def __write_error(self, msg: str):
         """
