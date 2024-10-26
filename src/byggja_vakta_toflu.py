@@ -62,6 +62,8 @@ class CreateShiftsSheet:
                         readme = True
                     case "byggja_vakta_toflu.exe":
                         get_times = True
+                    case "VaktaTafla.xlsx":
+                        continue
                     case _:
                         if file.suffix == ".xlsx":
                             with catch_warnings():
