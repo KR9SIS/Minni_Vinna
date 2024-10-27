@@ -24,6 +24,8 @@ class CreateShiftsSheet:
     ) -> None:
         self.stdout = stdout
         self.test_run = test_run
+        # Program checks while running if there are gaps in data
+        self.missing_dates = []
         try:
             _ = print("Program start") if self.stdout is True else None
             if vinna_excel:
@@ -159,7 +161,7 @@ class CreateShiftsSheet:
         self,
         emp_nickname: str,
         shift_time: str,
-        date_day: list[str],
+        date_day: tuple[tuple[int, int, str], str],
         week_sheet: DataFrame,
     ) -> DataFrame:
         """
@@ -181,7 +183,7 @@ class CreateShiftsSheet:
                 self.__write_error(
                     f"""
                     Program tried to write more than 4 names outside of the normal shift times
-                    on {date_day[1]} the {date_day[0]} at time {week_sheet.at[0, weekday_index]}.
+                    on {date_day[1]} the {date_day[0][2]} at time {week_sheet.at[0, weekday_index]}.
                     Please write three extra '-' at the bottom of template.xlsx
                     to allow for more unorthodox shift times and see if those three were enough.
                     PS. the more '-' you add the slower the program runs,
@@ -214,7 +216,7 @@ class CreateShiftsSheet:
             raise UnorthodoxShiftDeniedError
         self.__write_error(
             f"""
-            Time {shift_time} on {date_day[1]} the {date_day[0]}.
+            Time {shift_time} on {date_day[1]} the {date_day[0][2]}.
             came from the Vinna Excel sheet but could not be found in template.xlsx
             Please add an 'Aðrir Tímar' if you want to have unorthodox shift times.
             """
@@ -228,17 +230,22 @@ class CreateShiftsSheet:
         """
         _ = print("Mapping shifts") if self.stdout is True else None
 
-        def write_date(date_day: list[str], week_sheet):
+        def get_date_day(column_index) -> tuple[tuple[int, int, str], str]:
+            date_weekday = self.df_v_file.at[0, column_index].split()
+            date, month = date_weekday[0].split(".")
+            return ((int(date), int(month), date_weekday[0]), date_weekday[1])
+
+        def write_date(date_day: tuple[tuple[int, int, str], str], week_sheet):
             for column_index in range(len(week_sheet.columns)):
                 if week_sheet.at[1, column_index] == date_day[1]:
-                    week_sheet.at[0, column_index] = date_day[0]
+                    week_sheet.at[0, column_index] = date_day[0][2]
                     return
 
             if self.test_run:
                 raise WriteDateError
             self.__write_error(
                 f"""
-                Weekday could not be found to write the date '{date_day[0]}'.
+                Weekday could not be found to write the date '{date_day[0][2]}'.
                 Make sure '{date_day[1]}' is in the second row of template.xlsx
                 """
             )
@@ -255,23 +262,7 @@ class CreateShiftsSheet:
                         week_sheet.at[1, column_index]
                     ] = column_index
 
-        week = 1
-        self.df_sheets[f"V{week}"] = read_excel(template, header=None)
-        week_sheet = self.df_sheets[f"V{week}"]
-        create_time_weekday_index(week_sheet)
-
-        _ = print(f"V{week}") if self.stdout is True else None
-        for column_index in range(2, len(self.df_v_file.columns)):
-            date_day = self.df_v_file.at[0, column_index].split()
-            if date_day[1] == "mán" and date_day[0].split(".")[0] != "11":
-                week += 1
-                self.df_sheets[f"V{week}"] = week_sheet = read_excel(
-                    template, header=None
-                )
-                _ = print(f"V{week}") if self.stdout is True else None
-
-            write_date(date_day, week_sheet)
-
+        def iter_columns(column_index, date_day, week_sheet):
             for row_ind, column_cell in enumerate(
                 self.df_v_file[column_index][2:], start=2
             ):
@@ -282,6 +273,40 @@ class CreateShiftsSheet:
                         date_day,
                         week_sheet,
                     )
+
+        week = 1
+        self.df_sheets[f"V{week}"] = read_excel(template, header=None)
+        week_sheet = self.df_sheets[f"V{week}"]
+        create_time_weekday_index(week_sheet)
+        # Work through first date seperatively so
+        # date checker works out and we can minimize edge case checks
+        first_date_v_file = get_date_day(column_index=2)
+        write_date(first_date_v_file, week_sheet)
+        iter_columns(column_index=2, date_day=first_date_v_file, week_sheet=week_sheet)
+        prev_date = first_date_v_file
+
+        _ = print(f"V{week}") if self.stdout is True else None
+        for column_index in range(3, len(self.df_v_file.columns)):
+            date_day = get_date_day(column_index=column_index)
+            if (
+                date_day[0][0] != prev_date[0][0] + 1  # Check date against prev date
+                and date_day[0][1] == prev_date[0][1]  # Check same month
+            ):
+                self.missing_dates.append(f"{prev_date[0][0]+1}.{prev_date[0][1]}")
+            elif date_day[0][1] != prev_date[0][1] and date_day[0][1] == 1:
+                self.missing_dates.append(f"1.{date_day[0][1]}")
+
+            if date_day[1] == "mán" and date_day[0][0] != first_date_v_file[0][0]:
+                week += 1
+                self.df_sheets[f"V{week}"] = week_sheet = read_excel(
+                    template, header=None
+                )
+                _ = print(f"V{week}") if self.stdout is True else None
+
+            write_date(date_day, week_sheet)
+
+            iter_columns(column_index, date_day, week_sheet)
+            prev_date = date_day
 
     def seperate_names(self):
         """
@@ -354,28 +379,19 @@ class CreateShiftsSheet:
         date_day_row = self.df_v_file.iloc[0].to_numpy()
         start_date = int(date_day_row[2][0:2])
         end_date = int(date_day_row[-1][0:2])
-        if start_date - 1 != end_date:
-            diff = start_date - end_date - 1
-            if diff == 1:
-                self.__write_error(
-                    dedent(
-                        f"""
-                            VaktaTafla has been created succesfully, but the first date in the Vinna Excel file
-                            was the {start_date}th, while the last date was the {end_date}th.
-                            Which means 1 date is missing.
-                            """
-                    )
+        if end_date + 1 != start_date:
+            self.missing_dates.append(end_date + 1)
+        if self.missing_dates:
+            self.__write_error(
+                dedent(
+                    f"""
+                        VaktaTafla has been created succesfully, but the program discovered that
+                        there were {len(self.missing_dates)} dates missing.
+                        The missing dates found were:
+                        {".\n".join(self.missing_dates)}
+                        """
                 )
-            else:
-                self.__write_error(
-                    dedent(
-                        f"""
-                            VaktaTafla has been created succesfully, but the first date in the Vinna Excel file
-                            was the {start_date}th, while the last date was the {end_date}th.
-                            Which means {diff} dates are missing.
-                            """
-                    )
-                )
+            )
 
             raise ProgExitError
 
