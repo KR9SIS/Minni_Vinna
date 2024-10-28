@@ -52,7 +52,10 @@ class CreateShiftsSheet:
         """
         Check workspace to make sure it only contains the correct files
         The files allowed are:
-        template.xlsx, README.html, byggja_vakta_toflu.exe or .py, VaktaTafla.xlsx and the Vinna excel sheet
+        template.xlsx,
+        README.html,
+        byggja_vakta_toflu.exe or .py,
+        VaktaTafla.xlsx and the Vinna excel sheet
         """
         template = readme = get_times = extra_excel = False
         cwd: set[str] = {file.name for file in Path.cwd().iterdir()}
@@ -298,8 +301,12 @@ class CreateShiftsSheet:
                 and date_day[0][1] == prev_date[0][1]  # Check same month
             ):
                 self.missing_dates.append(f"{prev_date[0][0]+1}.{prev_date[0][1]}")
-            elif date_day[0][1] != prev_date[0][1] and date_day[0][1] == 1:
-                self.missing_dates.append(f"1.{date_day[0][1]}")
+
+            elif (
+                date_day[0][1] != prev_date[0][1]  # Check different month
+                and date_day[0][0] != 1  # Check that the first day of the month is 1
+            ):
+                self.missing_dates.append(f"01.{date_day[0][1]}")
 
             if date_day[1] == "mán" and date_day[0][0] != first_date_v_file[0][0]:
                 week += 1
@@ -391,6 +398,7 @@ class CreateShiftsSheet:
                 raise VinnaMissingDates(self.missing_dates)
 
             missing_dates = "\n".join(self.missing_dates)
+
             self.__write_error(
                 dedent(
                     f"""
