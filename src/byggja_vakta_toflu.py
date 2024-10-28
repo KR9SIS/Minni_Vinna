@@ -50,50 +50,55 @@ class CreateShiftsSheet:
 
     def check_workspace(self) -> DataFrame:
         """
-        Check workspace to make sure there is only the template.xlsx file and 1 other excel file
-        within the current files workspace
+        Check workspace to make sure it only contains the correct files
+        The files allowed are:
+        template.xlsx, README.html, byggja_vakta_toflu.exe or .py, VaktaTafla.xlsx and the Vinna excel sheet
         """
-        _ = print("Checking workspace") if self.stdout is True else None
+        template = readme = get_times = extra_excel = False
+        cwd: set[str] = {file.name for file in Path.cwd().iterdir()}
+        if "template.xlsx" in cwd:
+            cwd.remove("template.xlsx")
+            template = True
 
-        cwd = Path.cwd()
-        cwd_len = len([*cwd.iterdir()])
-        if cwd_len in {4, 5}:
-            vs_file = DataFrame()
-            template = readme = get_times = extra_excel = False
-            for file in cwd.iterdir():
-                match file.name:
-                    case "template.xlsx":
-                        template = True
-                    case "README.html":
-                        readme = True
-                    case "byggja_vakta_toflu.exe" | "byggja_vakta_toflu.py":
-                        get_times = True
-                    case "VaktaTafla.xlsx":
-                        continue
-                    case _:
-                        if file.suffix == ".xlsx":
-                            with catch_warnings():
-                                # Ignores following warning
-                                # openpyxl\styles\stylesheet.py:237: UserWarning:
-                                # Workbook contains no default style, apply openpyxl's default
-                                simplefilter("ignore", category=UserWarning)
-                                vs_file = read_excel(file.name, header=None)
-                            if vs_file.at[0, 0] == "Starfsmaður":
-                                extra_excel = True
+        if "README.html" in cwd:
+            cwd.remove("README.html")
+            readme = True
 
-            if template and readme and extra_excel and get_times:
-                return vs_file
+        if "byggja_vakta_toflu.py" in cwd:
+            cwd.remove("byggja_vakta_toflu.py")
+            get_times = True
 
-        contents = "\n".join([path.name for path in cwd.iterdir()])
+        if "byggja_vakta_toflu.exe" in cwd:
+            cwd.remove("byggja_vakta_toflu.exe")
+            get_times = True
+
+        if "VaktaTafla.xlsx" in cwd:
+            cwd.remove("VaktaTafla.xlsx")
+
+        if len(cwd) == 1:
+            file = Path(cwd.pop())
+            if file.suffix == ".xlsx":
+                with catch_warnings():
+                    # Ignores following warning
+                    # openpyxl\styles\stylesheet.py:237: UserWarning:
+                    # Workbook contains no default style, apply openpyxl's default
+                    simplefilter("ignore", category=UserWarning)
+                    vs_file = read_excel(file.name, header=None)
+                if vs_file.at[0, 0] == "Starfsmaður":
+                    extra_excel = True
+
+                    if template and readme and get_times and extra_excel:
+                        return vs_file
 
         if self.test_run:
             raise DirContentsError
 
+        contents = "\n".join([path.name for path in Path.cwd().iterdir()])
         self.__write_error(
             dedent(
                 """
-                There must only be 4 files in this folder:
-                template.xlsx, byggja_vakta_toflu.exe, README.html,
+                There must only be 4 or 5 files in this folder:
+                template.xlsx, byggja_vakta_toflu.exe, README.html, VaktaTafla.xlsx
                 & the Vinna Excel file where "Starfsmaður" is written in A1.
                 Currently there are:
                 """
