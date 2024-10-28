@@ -387,6 +387,9 @@ class CreateShiftsSheet:
         if end_date + 1 != start_date:
             self.missing_dates.append(end_date + 1)
         if self.missing_dates:
+            if self.test_run:
+                raise VinnaMissingDates
+
             self.__write_error(
                 dedent(
                     f"""
@@ -397,8 +400,6 @@ class CreateShiftsSheet:
                         """
                 )
             )
-
-            raise ProgExitError
 
     def __write_error(self, msg: str):
         """
@@ -567,6 +568,23 @@ class WriteDateError(CustomException):
     """
 
     def __init__(self, message: str = "WriteDateError", error_code: int = -7) -> None:
+        super().__init__(message, error_code)
+
+
+class VinnaMissingDates(CustomException):
+    """
+    Custom Exception which is raised whenever the program notices
+    that the Vinna Excel sheet is missing a date during unittest.
+    stdout:
+        VaktaTafla has been created succesfully, but the program discovered that
+        there were {len(self.missing_dates)} dates missing.
+        The missing dates found were:
+        {".\n".join(self.missing_dates)}
+    """
+
+    def __init__(
+        self, message: str = "VinnaMissingDates", error_code: int = -8
+    ) -> None:
         super().__init__(message, error_code)
 
 

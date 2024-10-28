@@ -38,6 +38,7 @@ class TestByggjaVaktaTofluExe(ut.TestCase):
             "ShiftsOutOfBoundsError": -5,
             "UnorthodoxShiftDeniedError": -6,
             "WriteDateError": -7,
+            "VinnaMissingDates": -8,
         }
         self.shift_sheet = Path("VaktaTafla.xlsx")
 
@@ -83,6 +84,24 @@ class TestByggjaVaktaTofluExe(ut.TestCase):
         except CalledProcessError as exc:
             err_code = self.extract_error_code(exc.stderr.decode())
             self.assertEqual(err_code, self.errors["TakenEmpNameError"])
+
+    def test_missing_dates(self):
+        """
+        Test whether the program notices when the Vinna Excel file contains missing dates
+        """
+        try:
+            cmd = self.base_command
+            cmd.extend(["-ve", "../ve_missing_dates.xlsx"])
+            _ = run(
+                cmd,
+                check=True,
+                capture_output=True,
+            )
+        except CalledProcessError as exc:
+            err_code = self.extract_error_code(exc.stderr.decode())
+            self.assertEqual(err_code, self.errors["VinnaMissingDates"])
+            self.assertTrue(self.shift_sheet.exists(follow_symlinks=False))
+            self.shift_sheet.unlink()
 
     def test_shifts_out_of_bounds(self):
         """
