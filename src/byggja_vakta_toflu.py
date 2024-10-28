@@ -24,6 +24,8 @@ class CreateShiftsSheet:
     ) -> None:
         self.stdout = stdout
         self.test_run = test_run
+        # Program checks while running if there are gaps in data
+        self.missing_dates = []
         try:
             _ = print("Program start") if self.stdout is True else None
             if vinna_excel:
@@ -48,50 +50,58 @@ class CreateShiftsSheet:
 
     def check_workspace(self) -> DataFrame:
         """
-        Check workspace to make sure there is only the template.xlsx file and 1 other excel file
-        within the current files workspace
+        Check workspace to make sure it only contains the correct files
+        The files allowed are:
+        template.xlsx,
+        README.html,
+        byggja_vakta_toflu.exe or .py,
+        VaktaTafla.xlsx and the Vinna excel sheet
         """
-        _ = print("Checking workspace") if self.stdout is True else None
+        template = readme = get_times = extra_excel = False
+        cwd: set[str] = {file.name for file in Path.cwd().iterdir()}
+        if "template.xlsx" in cwd:
+            cwd.remove("template.xlsx")
+            template = True
 
-        cwd = Path.cwd()
-        cwd_len = len([*cwd.iterdir()])
-        if cwd_len in {4, 5}:
-            vs_file = DataFrame()
-            template = readme = get_times = extra_excel = False
-            for file in cwd.iterdir():
-                match file.name:
-                    case "template.xlsx":
-                        template = True
-                    case "README.html":
-                        readme = True
-                    case "byggja_vakta_toflu.exe" | "byggja_vakta_toflu.py":
-                        get_times = True
-                    case "VaktaTafla.xlsx":
-                        continue
-                    case _:
-                        if file.suffix == ".xlsx":
-                            with catch_warnings():
-                                # Ignores following warning
-                                # openpyxl\styles\stylesheet.py:237: UserWarning:
-                                # Workbook contains no default style, apply openpyxl's default
-                                simplefilter("ignore", category=UserWarning)
-                                vs_file = read_excel(file.name, header=None)
-                            if vs_file.at[0, 0] == "Starfsmaður":
-                                extra_excel = True
+        if "README.html" in cwd:
+            cwd.remove("README.html")
+            readme = True
 
-            if template and readme and extra_excel and get_times:
-                return vs_file
+        if "byggja_vakta_toflu.py" in cwd:
+            cwd.remove("byggja_vakta_toflu.py")
+            get_times = True
 
-        contents = "\n".join([path.name for path in cwd.iterdir()])
+        if "byggja_vakta_toflu.exe" in cwd:
+            cwd.remove("byggja_vakta_toflu.exe")
+            get_times = True
+
+        if "VaktaTafla.xlsx" in cwd:
+            cwd.remove("VaktaTafla.xlsx")
+
+        if len(cwd) == 1:
+            file = Path(cwd.pop())
+            if file.suffix == ".xlsx":
+                with catch_warnings():
+                    # Ignores following warning
+                    # openpyxl\styles\stylesheet.py:237: UserWarning:
+                    # Workbook contains no default style, apply openpyxl's default
+                    simplefilter("ignore", category=UserWarning)
+                    vs_file = read_excel(file.name, header=None)
+                if vs_file.at[0, 0] == "Starfsmaður":
+                    extra_excel = True
+
+                    if template and readme and get_times and extra_excel:
+                        return vs_file
 
         if self.test_run:
             raise DirContentsError
 
+        contents = "\n".join([path.name for path in Path.cwd().iterdir()])
         self.__write_error(
             dedent(
                 """
-                There must only be 4 files in this folder:
-                template.xlsx, byggja_vakta_toflu.exe, README.html,
+                There must only be 4 or 5 files in this folder:
+                template.xlsx, byggja_vakta_toflu.exe, README.html, VaktaTafla.xlsx
                 & the Vinna Excel file where "Starfsmaður" is written in A1.
                 Currently there are:
                 """
@@ -159,7 +169,7 @@ class CreateShiftsSheet:
         self,
         emp_nickname: str,
         shift_time: str,
-        date_day: list[str],
+        date_day: tuple[tuple[int, int, str], str],
         week_sheet: DataFrame,
     ) -> DataFrame:
         """
@@ -181,7 +191,7 @@ class CreateShiftsSheet:
                 self.__write_error(
                     f"""
                     Program tried to write more than 4 names outside of the normal shift times
-                    on {date_day[1]} the {date_day[0]} at time {week_sheet.at[0, weekday_index]}.
+                    on {date_day[1]} the {date_day[0][2]} at time {week_sheet.at[0, weekday_index]}.
                     Please write three extra '-' at the bottom of template.xlsx
                     to allow for more unorthodox shift times and see if those three were enough.
                     PS. the more '-' you add the slower the program runs,
@@ -214,7 +224,7 @@ class CreateShiftsSheet:
             raise UnorthodoxShiftDeniedError
         self.__write_error(
             f"""
-            Time {shift_time} on {date_day[1]} the {date_day[0]}.
+            Time {shift_time} on {date_day[1]} the {date_day[0][2]}.
             came from the Vinna Excel sheet but could not be found in template.xlsx
             Please add an 'Aðrir Tímar' if you want to have unorthodox shift times.
             """
@@ -228,17 +238,22 @@ class CreateShiftsSheet:
         """
         _ = print("Mapping shifts") if self.stdout is True else None
 
-        def write_date(date_day: list[str], week_sheet):
+        def get_date_day(column_index) -> tuple[tuple[int, int, str], str]:
+            date_weekday = self.df_v_file.at[0, column_index].split()
+            date, month = date_weekday[0].split(".")
+            return ((int(date), int(month), date_weekday[0]), date_weekday[1])
+
+        def write_date(date_day: tuple[tuple[int, int, str], str], week_sheet):
             for column_index in range(len(week_sheet.columns)):
                 if week_sheet.at[1, column_index] == date_day[1]:
-                    week_sheet.at[0, column_index] = date_day[0]
+                    week_sheet.at[0, column_index] = date_day[0][2]
                     return
 
             if self.test_run:
                 raise WriteDateError
             self.__write_error(
                 f"""
-                Weekday could not be found to write the date '{date_day[0]}'.
+                Weekday could not be found to write the date '{date_day[0][2]}'.
                 Make sure '{date_day[1]}' is in the second row of template.xlsx
                 """
             )
@@ -255,23 +270,7 @@ class CreateShiftsSheet:
                         week_sheet.at[1, column_index]
                     ] = column_index
 
-        week = 1
-        self.df_sheets[f"V{week}"] = read_excel(template, header=None)
-        week_sheet = self.df_sheets[f"V{week}"]
-        create_time_weekday_index(week_sheet)
-
-        _ = print(f"V{week}") if self.stdout is True else None
-        for column_index in range(2, len(self.df_v_file.columns)):
-            date_day = self.df_v_file.at[0, column_index].split()
-            if date_day[1] == "mán" and date_day[0].split(".")[0] != "11":
-                week += 1
-                self.df_sheets[f"V{week}"] = week_sheet = read_excel(
-                    template, header=None
-                )
-                _ = print(f"V{week}") if self.stdout is True else None
-
-            write_date(date_day, week_sheet)
-
+        def iter_columns(column_index, date_day, week_sheet):
             for row_ind, column_cell in enumerate(
                 self.df_v_file[column_index][2:], start=2
             ):
@@ -282,6 +281,44 @@ class CreateShiftsSheet:
                         date_day,
                         week_sheet,
                     )
+
+        week = 1
+        self.df_sheets[f"V{week}"] = read_excel(template, header=None)
+        week_sheet = self.df_sheets[f"V{week}"]
+        create_time_weekday_index(week_sheet)
+        # Work through first date seperatively so
+        # date checker works out and we can minimize edge case checks
+        first_date_v_file = get_date_day(column_index=2)
+        write_date(first_date_v_file, week_sheet)
+        iter_columns(column_index=2, date_day=first_date_v_file, week_sheet=week_sheet)
+        prev_date = first_date_v_file
+
+        _ = print(f"V{week}") if self.stdout is True else None
+        for column_index in range(3, len(self.df_v_file.columns)):
+            date_day = get_date_day(column_index=column_index)
+            if (
+                date_day[0][0] != prev_date[0][0] + 1  # Check date against prev date
+                and date_day[0][1] == prev_date[0][1]  # Check same month
+            ):
+                self.missing_dates.append(f"{prev_date[0][0]+1}.{prev_date[0][1]}")
+
+            elif (
+                date_day[0][1] != prev_date[0][1]  # Check different month
+                and date_day[0][0] != 1  # Check that the first day of the month is 1
+            ):
+                self.missing_dates.append(f"01.{date_day[0][1]}")
+
+            if date_day[1] == "mán" and date_day[0][0] != first_date_v_file[0][0]:
+                week += 1
+                self.df_sheets[f"V{week}"] = week_sheet = read_excel(
+                    template, header=None
+                )
+                _ = print(f"V{week}") if self.stdout is True else None
+
+            write_date(date_day, week_sheet)
+
+            iter_columns(column_index, date_day, week_sheet)
+            prev_date = date_day
 
     def seperate_names(self):
         """
@@ -354,30 +391,24 @@ class CreateShiftsSheet:
         date_day_row = self.df_v_file.iloc[0].to_numpy()
         start_date = int(date_day_row[2][0:2])
         end_date = int(date_day_row[-1][0:2])
-        if start_date - 1 != end_date:
-            diff = start_date - end_date - 1
-            if diff == 1:
-                self.__write_error(
-                    dedent(
-                        f"""
-                            VaktaTafla has been created succesfully, but the first date in the Vinna Excel file
-                            was the {start_date}th, while the last date was the {end_date}th.
-                            Which means 1 date is missing.
-                            """
-                    )
-                )
-            else:
-                self.__write_error(
-                    dedent(
-                        f"""
-                            VaktaTafla has been created succesfully, but the first date in the Vinna Excel file
-                            was the {start_date}th, while the last date was the {end_date}th.
-                            Which means {diff} dates are missing.
-                            """
-                    )
-                )
+        if end_date + 1 != start_date:
+            self.missing_dates.append(end_date + 1)
+        if self.missing_dates:
+            if self.test_run:
+                raise VinnaMissingDates(self.missing_dates)
 
-            raise ProgExitError
+            missing_dates = "\n".join(self.missing_dates)
+
+            self.__write_error(
+                dedent(
+                    f"""
+                        VaktaTafla has been created succesfully, but the program discovered that
+                        there were {len(self.missing_dates)} dates missing.
+                        The missing dates found were:
+                        """
+                )
+                + f"{missing_dates}"
+            )
 
     def __write_error(self, msg: str):
         """
@@ -441,7 +472,7 @@ class CustomException(Exception):
         self.error_code = error_code
 
     def __str__(self) -> str:
-        return f"Message:\n{self.message}\nErrorCode: {self.error_code}"
+        return f"\nMessage:\n{self.message}\nErrorCode: {self.error_code}"
 
 
 class ProgExitError(CustomException):
@@ -547,6 +578,30 @@ class WriteDateError(CustomException):
 
     def __init__(self, message: str = "WriteDateError", error_code: int = -7) -> None:
         super().__init__(message, error_code)
+
+
+class VinnaMissingDates(CustomException):
+    """
+    Custom Exception which is raised whenever the program notices
+    that the Vinna Excel sheet is missing a date during unittest.
+    stdout:
+        VaktaTafla has been created succesfully, but the program discovered that
+        there were {len(self.missing_dates)} dates missing.
+        The missing dates found were:
+        {".\n".join(self.missing_dates)}
+    """
+
+    def __init__(
+        self,
+        missing_dates: list[str],
+        message: str = "VinnaMissingDates",
+        error_code: int = -8,
+    ) -> None:
+        super().__init__(message, error_code)
+        self.missing_dates = missing_dates
+
+    def __str__(self) -> str:
+        return f"\nMessage:\n{self.message}\nErrorCode: {self.error_code}\nMissingDates: {self.missing_dates}"
 
 
 if __name__ == "__main__":

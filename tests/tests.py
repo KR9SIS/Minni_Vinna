@@ -29,8 +29,8 @@ class TestByggjaVaktaTofluExe(ut.TestCase):
         )
 
     def setUp(self):
-        self.program = str(Path("byggja_vakta_toflu.exe").resolve())
-        self.base_command = [self.program, "-s", "-test"]
+        self.program = str(Path("../../src/byggja_vakta_toflu.py").resolve())
+        self.base_command = ["python3", self.program, "-s", "-test"]
         self.errors = {
             "DirContentsError": -2,
             "TakenEmpNameError": -3,
@@ -38,31 +38,29 @@ class TestByggjaVaktaTofluExe(ut.TestCase):
             "ShiftsOutOfBoundsError": -5,
             "UnorthodoxShiftDeniedError": -6,
             "WriteDateError": -7,
+            "VinnaMissingDates": -8,
         }
+        self.shift_sheet = Path("VaktaTafla.xlsx")
 
     def test_happy_path(self):
         """
         Test that everything works when correct parameters are set
         """
-        self.assertEqual(len([*Path.cwd().iterdir()]), 4)
         try:
-            run([self.program, "-s"], check=True)
-            shift_sheet = Path("VaktaTafla.xlsx")
-            self.assertTrue(shift_sheet.exists(follow_symlinks=False))
-            shift_sheet.unlink()
-            self.assertEqual(len([*Path.cwd().iterdir()]), 4)
-        except CalledProcessError:
-            pass
+            run(["python3", self.program, "-s"], check=True)
+            self.assertTrue(self.shift_sheet.exists(follow_symlinks=False))
+            self.shift_sheet.unlink()
+
+        except CalledProcessError as exc:
+            self.fail(f"Happy Path Raised Error:\n{exc}")
 
     def test_wrong_directory(self):
         """
         Test that the program fails when wrong amount of files are in the directory
         """
-        self.assertEqual(len([*Path.cwd().iterdir()]), 4)
         extra_file = Path("EXTRA.txt")
         extra_file.touch()
 
-        self.assertEqual(len([*Path.cwd().iterdir()]), 5)
         try:
             _ = run(self.base_command, check=True, capture_output=True)
         except CalledProcessError as exc:
@@ -70,7 +68,6 @@ class TestByggjaVaktaTofluExe(ut.TestCase):
             self.assertEqual(err_code, self.errors["DirContentsError"])
 
         extra_file.unlink()
-        self.assertEqual(len([*Path.cwd().iterdir()]), 4)
 
     def test_emp_name_in_use(self):
         """
@@ -87,6 +84,30 @@ class TestByggjaVaktaTofluExe(ut.TestCase):
         except CalledProcessError as exc:
             err_code = self.extract_error_code(exc.stderr.decode())
             self.assertEqual(err_code, self.errors["TakenEmpNameError"])
+
+    def test_missing_dates(self):
+        """
+        Test whether the program notices when the Vinna Excel file contains missing dates
+        """
+        try:
+            cmd = self.base_command
+            cmd.extend(["-ve", "../ve_missing_dates.xlsx"])
+            _ = run(
+                cmd,
+                check=True,
+                capture_output=True,
+            )
+        except CalledProcessError as exc:
+            missing_dates = exc.stderr.decode().find("\nMissingDates: ")
+            missing_dates = exc.stderr.decode()[
+                missing_dates + len("MissingDates: ") :
+            ].strip()
+            self.assertEqual(missing_dates, "['16.11', '01.12']")
+            err_code = self.extract_error_code(exc.stderr.decode())
+            self.assertEqual(err_code, self.errors["VinnaMissingDates"])
+            # self.assertEqual(["16.11", "01.12"], exc.missing_dates)
+            self.assertTrue(self.shift_sheet.exists(follow_symlinks=False))
+            self.shift_sheet.unlink()
 
     def test_shifts_out_of_bounds(self):
         """
@@ -139,4 +160,5 @@ class TestByggjaVaktaTofluExe(ut.TestCase):
 
 if __name__ == "__main__":
     chdir(Path("test_env").resolve())
-    ut.main(verbosity=1)
+    ut.main(verbosity=2)
+    _ = input("Press enter to exit")
