@@ -388,17 +388,18 @@ class CreateShiftsSheet:
             self.missing_dates.append(end_date + 1)
         if self.missing_dates:
             if self.test_run:
-                raise VinnaMissingDates
+                raise VinnaMissingDates(self.missing_dates)
 
+            missing_dates = "\n".join(self.missing_dates)
             self.__write_error(
                 dedent(
                     f"""
                         VaktaTafla has been created succesfully, but the program discovered that
                         there were {len(self.missing_dates)} dates missing.
                         The missing dates found were:
-                        {".\n".join(self.missing_dates)}
                         """
                 )
+                + f"{missing_dates}"
             )
 
     def __write_error(self, msg: str):
@@ -463,7 +464,7 @@ class CustomException(Exception):
         self.error_code = error_code
 
     def __str__(self) -> str:
-        return f"Message:\n{self.message}\nErrorCode: {self.error_code}"
+        return f"\nMessage:\n{self.message}\nErrorCode: {self.error_code}"
 
 
 class ProgExitError(CustomException):
@@ -583,9 +584,16 @@ class VinnaMissingDates(CustomException):
     """
 
     def __init__(
-        self, message: str = "VinnaMissingDates", error_code: int = -8
+        self,
+        missing_dates: list[str],
+        message: str = "VinnaMissingDates",
+        error_code: int = -8,
     ) -> None:
         super().__init__(message, error_code)
+        self.missing_dates = missing_dates
+
+    def __str__(self) -> str:
+        return f"\nMessage:\n{self.message}\nErrorCode: {self.error_code}\nMissingDates: {self.missing_dates}"
 
 
 if __name__ == "__main__":

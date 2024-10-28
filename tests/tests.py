@@ -98,8 +98,14 @@ class TestByggjaVaktaTofluExe(ut.TestCase):
                 capture_output=True,
             )
         except CalledProcessError as exc:
+            missing_dates = exc.stderr.decode().find("\nMissingDates: ")
+            missing_dates = exc.stderr.decode()[
+                missing_dates + len("MissingDates: ") :
+            ].strip()
+            self.assertEqual(missing_dates, "['16.11', '01.12']")
             err_code = self.extract_error_code(exc.stderr.decode())
             self.assertEqual(err_code, self.errors["VinnaMissingDates"])
+            # self.assertEqual(["16.11", "01.12"], exc.missing_dates)
             self.assertTrue(self.shift_sheet.exists(follow_symlinks=False))
             self.shift_sheet.unlink()
 
