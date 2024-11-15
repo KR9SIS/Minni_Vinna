@@ -1,12 +1,30 @@
-et-xmlfile==1.1.0		# MIT License (MIT) 
-openpyxl==3.1.5			# MIT License (MIT) 
-pytz==2024.1			# MIT License (MIT)
-six==1.16.0			# OSI Approved :: MIT License 
+altgraph==0.17.4 			# MIT License (MIT) 
 
-pandas==2.2.3			# BSD License (BSD 3-Clause License Copyright (c) 2008-2011, AQR Capital Management, LLC, Lambda Foundry, Inc. and...) 
-numpy==2.1.0			# BSD License (Copyright (c) 2005-2024, NumPy Developers. All rights reserved. Redistribution and use in source an...) 
-python-dateutil==2.9.0.post0	# OSI Approved :: Apache Software License, OSI Approved :: BSD License
+et-xmlfile==1.1.0			# MIT License (MIT)
 
-XlsxWriter==3.2.0		# BSD License (BSD-2-Clause)
+numpy==2.1.0				# BSD License (Copyright (c) 2005-2024, NumPy Developers. All rights reserved. Redistribution and use in source an...)
 
-tzdata==2024.1			# Apache Software License (Apache-2.0) 
+openpyxl==3.1.5				# MIT License (MIT)
+
+packaging==24.1				# Apache Software License, BSD License
+
+pandas==2.2.3				# BSD License (BSD 3-Clause License Copyright (c) 2008-2011, AQR Capital Management, LLC, Lambda Foundry, Inc. and...)
+
+pyinstaller==6.11.0			# GNU General Public License v2 (GPLv2) (GPLv2-or-later with a special exception which allows to use PyInstaller to build and distribute non-...) 
+
+pyinstaller-hooks-contrib==2024.9	# Apache Software License, GNU General Public License v2 (GPLv2)  
+
+python-dateutil==2.9.0.post0		# OSI Approved :: Apache Software License, OSI Approved :: BSD License
+
+pytz==2024.1				# MIT License (MIT)
+
+setuptools==75.3.0			# MIT License (MIT)
+
+six==1.16.0				# OSI Approved :: MIT License
+
+tzdata==2024.1				# Apache Software License (Apache-2.0)
+
+XlsxWriter==3.2.0			# BSD License (BSD-2-Clause)
+
+
+# Licenses {MIT LIcense, BSD-2-Clause, BSD-3-Clause, Apache Software License (Apache-2.0), GNU General Public License v2 (GPLv2)}
