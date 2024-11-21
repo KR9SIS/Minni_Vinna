@@ -3,7 +3,7 @@ This is a script used to read in an Excel spreadsheet from
 Vinnustund and format the names based off time and date.
 The code is owned and written by Kristófer Helgi Sigurðsson
 Email: kristoferhelgi@protonmail.com
-Github: https://github.com/KR9SIS/RVK_HMH
+Github: https://github.com/KR9SIS/Minni_Vinna
 """
 
 from argparse import ArgumentParser
@@ -67,13 +67,16 @@ class CreateShiftsSheet:
             cwd.remove("README.html")
             readme = True
 
-        if "byggja_vakta_toflu.py" in cwd:
-            cwd.remove("byggja_vakta_toflu.py")
-            get_times = True
-
         if "byggja_vakta_toflu.exe" in cwd:
             cwd.remove("byggja_vakta_toflu.exe")
             get_times = True
+
+        elif "byggja_vakta_toflu.py" in cwd:
+            cwd.remove("byggja_vakta_toflu.py")
+            get_times = True
+
+        if "License.pdf" in cwd:
+            cwd.remove("License.pdf")
 
         if "VaktaTafla.xlsx" in cwd:
             cwd.remove("VaktaTafla.xlsx")
@@ -100,9 +103,10 @@ class CreateShiftsSheet:
         self.__write_error(
             dedent(
                 """
-                There must only be 4 or 5 files in this folder:
-                template.xlsx, byggja_vakta_toflu.exe, README.html, VaktaTafla.xlsx
-                & the Vinna Excel file where "Starfsmaður" is written in A1.
+                There must only be 4 to 6 files in this folder:
+                template.xlsx, byggja_vakta_toflu.exe, README.html & the
+                Vinna Excel file where "Starfsmaður" is written in A1 must be there.
+                Optionally License.pdf and VaktaTafla.xlsx are allowed to be there
                 Currently there are:
                 """
             )
