@@ -2,7 +2,7 @@
 This is a script used to read in an Excel spreadsheet from
 Vinnustund and format the names based off time and date.
 The code is owned and written by Kristófer Helgi Sigurðsson
-Email: kristoferhelgi@protonmail.com
+Email: kristoferhelgi+mvinna@protonmail.com
 Github: https://github.com/KR9SIS/Minni_Vinna
 """
 
